@@ -1,0 +1,46 @@
+services:
+  web:
+    build:
+      context: .
+      target: dev
+    command: sh -c "npx prisma db push && npm run dev"
+    ports:
+      - "${PORT:-3100}:3000"
+    environment:
+      DATABASE_URL: "mongodb://mongo:27017/habit-support?replicaSet=rs0"
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    depends_on:
+      mongo-init-replica:
+        condition: service_completed_successfully
+
+  mongo:
+    image: mongo:7
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --host localhost --eval 'db.adminCommand({ ping: 1 })'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mongo-init-replica:
+    image: mongo:7
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      until mongosh --host mongo:27017 --quiet --eval 'db.adminCommand({ ping: 1 })' >/dev/null 2>&1; do sleep 1; done;
+      mongosh --host mongo:27017 --quiet --eval 'try { rs.status() } catch (err) { rs.initiate({_id:"rs0",members:[{_id:0,host:"mongo:27017"}]}) }'
+
+volumes:
+  node_modules:
+  mongo-data:

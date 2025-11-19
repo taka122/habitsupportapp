@@ -1,0 +1,44 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  createdAt DateTime @default(now())
+
+  habits    Habit[]
+}
+
+model Habit {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  name      String
+  type      String   @default("time")
+  duration  Int      @default(10)
+  frequency String   @default("daily")
+  streak    Int      @default(0)
+  exp       Int      @default(0)
+  color     String   @default("blue")
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  records Record[]
+}
+
+model Record {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  habitId   String   @db.ObjectId
+  date      DateTime
+  completed Boolean  @default(false)
+
+  habit Habit @relation(fields: [habitId], references: [id])
+}
